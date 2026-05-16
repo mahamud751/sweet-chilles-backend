@@ -1,35 +1,44 @@
 import { PrismaService } from '../../prisma/prisma.service';
+import { RestaurantsService } from '../restaurants/restaurants.service';
 export declare class DashboardService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
-    stats(restaurantId: string): Promise<{
-        customers: {
-            total: number;
-            active: number;
-            lost: number;
-            gold: number;
-            birthdayMembers: number;
-        };
-        revenue: {
-            totalBillAmount: number | import("@prisma/client/runtime/library").Decimal;
-            totalDiscountGiven: number | import("@prisma/client/runtime/library").Decimal;
-            voucherRedemptions: number;
-            repeatVisits: number;
-            orders: number;
-            bookings: number;
-        };
-        growthTargets: {
-            month1to2Members: string;
-            month6to8RevenueUplift: string;
-        };
+    private readonly restaurants;
+    constructor(prisma: PrismaService, restaurants: RestaurantsService);
+    resolveRestaurantId(userId: string, slug?: string): Promise<string>;
+    summary(userId: string, slug?: string): Promise<{
+        members: number;
+        activeVouchers: number;
+        redeemedVouchers: number;
+        campaigns: number;
     }>;
-    members(restaurantId: string): import(".prisma/client").Prisma.PrismaPromise<{
+    listMembers(userId: string, slug?: string): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
         email: string;
+        phone: string | null;
         loyaltyStage: import(".prisma/client").$Enums.LoyaltyStage;
         isGoldMember: boolean;
-        lastVisitAt: Date | null;
+        joinedAt: Date;
+        voucherCount: number;
+    }[]>;
+    listVouchers(userId: string, slug?: string): Promise<{
+        id: string;
+        type: import(".prisma/client").$Enums.VoucherType;
+        percentOff: number;
+        status: import(".prisma/client").$Enums.VoucherStatus;
+        validUntil: Date;
+        redeemedAt: Date | null;
+        qrToken: string;
+        memberName: string;
+        memberEmail: string;
+    }[]>;
+    listCampaigns(userId: string, slug?: string): Promise<{
+        type: import(".prisma/client").$Enums.CampaignType;
+        id: string;
+        createdAt: Date;
+        restaurantId: string;
+        title: string;
+        bodyTemplate: string;
+        isEnabled: boolean;
     }[]>;
 }

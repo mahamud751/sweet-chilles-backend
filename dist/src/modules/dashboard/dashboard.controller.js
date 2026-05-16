@@ -15,50 +15,70 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
-const auth_util_1 = require("../../common/auth.util");
+const staff_auth_util_1 = require("../../common/staff-auth.util");
 const dashboard_service_1 = require("./dashboard.service");
 let DashboardController = class DashboardController {
     constructor(dashboard) {
         this.dashboard = dashboard;
     }
-    stats(authHeader) {
-        const restaurantId = this.restaurantId(authHeader);
-        return this.dashboard.stats(restaurantId);
+    summary(authHeader, slug) {
+        const { sub } = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
+        return this.dashboard.summary(sub, slug);
     }
-    members(authHeader) {
-        const restaurantId = this.restaurantId(authHeader);
-        return this.dashboard.members(restaurantId);
+    members(authHeader, slug) {
+        const { sub } = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
+        return this.dashboard.listMembers(sub, slug);
     }
-    restaurantId(authHeader) {
-        if (!authHeader?.startsWith('Bearer ')) {
-            throw new common_1.UnauthorizedException();
-        }
-        const payload = (0, auth_util_1.verifyToken)(authHeader.slice(7));
-        if (payload.type !== 'staff' || !payload.restaurantId) {
-            throw new common_1.UnauthorizedException('Staff access required');
-        }
-        return payload.restaurantId;
+    vouchers(authHeader, slug) {
+        const { sub } = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
+        return this.dashboard.listVouchers(sub, slug);
+    }
+    campaigns(authHeader, slug) {
+        const { sub } = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
+        return this.dashboard.listCampaigns(sub, slug);
     }
 };
 exports.DashboardController = DashboardController;
 __decorate([
-    (0, common_1.Get)('stats'),
+    (0, common_1.Get)('summary'),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Owner dashboard — members, revenue, redemptions' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Counts for owner/admin dashboard' }),
     __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Query)('slug')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], DashboardController.prototype, "stats", null);
+], DashboardController.prototype, "summary", null);
 __decorate([
     (0, common_1.Get)('members'),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Member list for restaurant CRM' }),
+    (0, swagger_1.ApiOperation)({ summary: 'All loyalty members for this restaurant' }),
     __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Query)('slug')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "members", null);
+__decorate([
+    (0, common_1.Get)('vouchers'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'All vouchers/rewards for this restaurant' }),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Query)('slug')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], DashboardController.prototype, "vouchers", null);
+__decorate([
+    (0, common_1.Get)('campaigns'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Campaign templates / offers' }),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Query)('slug')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], DashboardController.prototype, "campaigns", null);
 exports.DashboardController = DashboardController = __decorate([
     (0, swagger_1.ApiTags)('Dashboard'),
     (0, common_1.Controller)('dashboard'),

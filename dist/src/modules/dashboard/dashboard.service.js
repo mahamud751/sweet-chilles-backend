@@ -11,89 +11,108 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const restaurants_service_1 = require("../restaurants/restaurants.service");
 let DashboardService = class DashboardService {
-    constructor(prisma) {
+    constructor(prisma, restaurants) {
         this.prisma = prisma;
+        this.restaurants = restaurants;
     }
-    async stats(restaurantId) {
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const ninetyDaysAgo = new Date(now);
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-        const [totalMembers, activeMembers, lostMembers, birthdayThisMonth, voucherRedemptions, visits, orders, bookings] = await Promise.all([
+    async resolveRestaurantId(userId, slug) {
+        const user = await this.prisma.user.findUniqueOrThrow({
+            where: { id: userId },
+        });
+        if (user.restaurantId)
+            return user.restaurantId;
+        if (user.role === client_1.UserRole.SAVASAACHI_ADMIN && slug) {
+            const restaurant = await this.restaurants.findBySlug(slug);
+            if (restaurant)
+                return restaurant.id;
+        }
+        const fallback = await this.prisma.restaurant.findFirst({
+            where: { slug: slug ?? 'sweet-chillies' },
+        });
+        if (!fallback)
+            throw new common_1.ForbiddenException('No restaurant access');
+        return fallback.id;
+    }
+    async summary(userId, slug) {
+        const restaurantId = await this.resolveRestaurantId(userId, slug);
+        const [members, activeVouchers, redeemedVouchers, campaigns] = await Promise.all([
             this.prisma.member.count({ where: { restaurantId } }),
-            this.prisma.member.count({
-                where: { restaurantId, lastVisitAt: { gte: thirtyDaysAgo } },
-            }),
-            this.prisma.member.count({
-                where: {
-                    restaurantId,
-                    OR: [{ lastVisitAt: null }, { lastVisitAt: { lt: ninetyDaysAgo } }],
-                },
-            }),
-            this.prisma.member.count({
-                where: {
-                    restaurantId,
-                    birthday: { not: null },
-                },
+            this.prisma.voucher.count({
+                where: { restaurantId, status: client_1.VoucherStatus.ACTIVE },
             }),
             this.prisma.voucher.count({
-                where: { restaurantId, status: 'REDEEMED' },
+                where: { restaurantId, status: client_1.VoucherStatus.REDEEMED },
             }),
-            this.prisma.visit.count({ where: { restaurantId } }),
-            this.prisma.order.count({ where: { restaurantId } }),
-            this.prisma.booking.count({ where: { restaurantId } }),
+            this.prisma.campaignTemplate.count({ where: { restaurantId } }),
         ]);
-        const goldMembers = await this.prisma.member.count({
-            where: { restaurantId, isGoldMember: true },
-        });
-        const revenueFromVisits = await this.prisma.visit.aggregate({
-            where: { restaurantId, billAmount: { not: null } },
-            _sum: { billAmount: true, discountAmount: true },
-        });
-        return {
-            customers: {
-                total: totalMembers,
-                active: activeMembers,
-                lost: lostMembers,
-                gold: goldMembers,
-                birthdayMembers: birthdayThisMonth,
-            },
-            revenue: {
-                totalBillAmount: revenueFromVisits._sum.billAmount ?? 0,
-                totalDiscountGiven: revenueFromVisits._sum.discountAmount ?? 0,
-                voucherRedemptions,
-                repeatVisits: visits,
-                orders,
-                bookings,
-            },
-            growthTargets: {
-                month1to2Members: '50–150',
-                month6to8RevenueUplift: '£3,000–£5,000',
-            },
-        };
+        return { members, activeVouchers, redeemedVouchers, campaigns };
     }
-    members(restaurantId) {
-        return this.prisma.member.findMany({
+    async listMembers(userId, slug) {
+        const restaurantId = await this.resolveRestaurantId(userId, slug);
+        const members = await this.prisma.member.findMany({
             where: { restaurantId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
             select: {
                 id: true,
                 name: true,
                 email: true,
+                phone: true,
                 loyaltyStage: true,
                 isGoldMember: true,
-                lastVisitAt: true,
                 createdAt: true,
+                _count: { select: { vouchers: true } },
             },
+        });
+        return members.map(m => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            phone: m.phone,
+            loyaltyStage: m.loyaltyStage,
+            isGoldMember: m.isGoldMember,
+            joinedAt: m.createdAt,
+            voucherCount: m._count.vouchers,
+        }));
+    }
+    async listVouchers(userId, slug) {
+        const restaurantId = await this.resolveRestaurantId(userId, slug);
+        const vouchers = await this.prisma.voucher.findMany({
+            where: { restaurantId },
+            orderBy: { createdAt: 'desc' },
+            take: 300,
+            include: {
+                member: { select: { name: true, email: true } },
+            },
+        });
+        return vouchers.map(v => ({
+            id: v.id,
+            type: v.type,
+            percentOff: v.percentOff,
+            status: v.status,
+            validUntil: v.validUntil,
+            redeemedAt: v.redeemedAt,
+            qrToken: v.qrToken,
+            memberName: v.member.name,
+            memberEmail: v.member.email,
+        }));
+    }
+    async listCampaigns(userId, slug) {
+        const restaurantId = await this.resolveRestaurantId(userId, slug);
+        return this.prisma.campaignTemplate.findMany({
+            where: { restaurantId },
+            orderBy: { type: 'asc' },
         });
     }
 };
 exports.DashboardService = DashboardService;
 exports.DashboardService = DashboardService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        restaurants_service_1.RestaurantsService])
 ], DashboardService);
 //# sourceMappingURL=dashboard.service.js.map

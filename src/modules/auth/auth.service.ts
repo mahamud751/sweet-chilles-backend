@@ -207,6 +207,47 @@ export class AuthService {
     };
   }
 
+  async updateStaffProfile(
+    userId: string,
+    data: { displayName?: string; email?: string },
+  ) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    if (data.email && data.email.toLowerCase() !== user.email) {
+      const taken = await this.prisma.user.findUnique({
+        where: { email: data.email.toLowerCase() },
+      });
+      if (taken) throw new ConflictException('Email already in use');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        displayName: data.displayName?.trim() || undefined,
+        email: data.email?.toLowerCase(),
+      },
+    });
+
+    return this.staffProfile(userId);
+  }
+
+  async changeStaffPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const ok = await comparePassword(currentPassword, user.passwordHash);
+    if (!ok) throw new UnauthorizedException('Current password is incorrect');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await hashPassword(newPassword) },
+    });
+
+    return { success: true };
+  }
+
   async memberProfile(memberId: string) {
     const member = await this.prisma.member.findUniqueOrThrow({
       where: { id: memberId },

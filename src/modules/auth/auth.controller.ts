@@ -23,6 +23,11 @@ import {
   ChangeMemberPasswordDto,
   UpdateMemberProfileDto,
 } from './dto/update-profile.dto';
+import {
+  ChangeStaffPasswordDto,
+  UpdateStaffProfileDto,
+} from './dto/update-staff-profile.dto';
+import { staffPayloadFromHeader } from '../../common/staff-auth.util';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AuthService } from './auth.service';
 
@@ -79,6 +84,32 @@ export class AuthController {
     }
     const staff = await this.auth.staffProfile(payload.sub);
     return { accountType: 'staff' as const, staff };
+  }
+
+  @Patch('staff/me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update staff/owner/admin profile' })
+  updateStaffMe(
+    @Headers('authorization') authHeader: string | undefined,
+    @Body() body: UpdateStaffProfileDto,
+  ) {
+    const payload = staffPayloadFromHeader(authHeader);
+    return this.auth.updateStaffProfile(payload.sub, body);
+  }
+
+  @Patch('staff/me/password')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change staff/owner/admin password' })
+  changeStaffPassword(
+    @Headers('authorization') authHeader: string | undefined,
+    @Body() body: ChangeStaffPasswordDto,
+  ) {
+    const payload = staffPayloadFromHeader(authHeader);
+    return this.auth.changeStaffPassword(
+      payload.sub,
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 
   @Patch('me')

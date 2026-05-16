@@ -17,6 +17,7 @@ exports.CampaignsModule = CampaignsModule = __decorate([
     (0, common_1.Module)({
         controllers: [campaigns_controller_1.CampaignsController],
         providers: [campaigns_service_1.CampaignsService],
+        exports: [campaigns_service_1.CampaignsService],
     })
 ], CampaignsModule);
 //# sourceMappingURL=campaigns.module.js.map

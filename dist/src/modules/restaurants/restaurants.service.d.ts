@@ -1,7 +1,9 @@
 import { PrismaService } from '../../prisma/prisma.service';
+import { CampaignsService } from '../campaigns/campaigns.service';
 export declare class RestaurantsService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly campaigns;
+    constructor(prisma: PrismaService, campaigns: CampaignsService);
     findBySlug(slug: string): import(".prisma/client").Prisma.Prisma__RestaurantClient<{
         id: string;
         slug: string;
@@ -43,5 +45,14 @@ export declare class RestaurantsService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+    }[]>;
+    listCampaigns(slug: string): Promise<{
+        type: import(".prisma/client").$Enums.CampaignType;
+        id: string;
+        createdAt: Date;
+        restaurantId: string;
+        title: string;
+        bodyTemplate: string;
+        isEnabled: boolean;
     }[]>;
 }

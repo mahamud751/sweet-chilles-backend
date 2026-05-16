@@ -70,6 +70,56 @@ let AuthService = class AuthService {
         });
         return { token, member: await this.memberProfile(member.id) };
     }
+    async loginUnified(restaurantSlug, email, password) {
+        const restaurant = await this.restaurants.findBySlug(restaurantSlug);
+        if (!restaurant)
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        const normalizedEmail = email.toLowerCase();
+        const member = await this.prisma.member.findUnique({
+            where: {
+                restaurantId_email: {
+                    restaurantId: restaurant.id,
+                    email: normalizedEmail,
+                },
+            },
+        });
+        if (member) {
+            const ok = await (0, auth_util_1.comparePassword)(password, member.passwordHash);
+            if (!ok)
+                throw new common_1.UnauthorizedException('Invalid credentials');
+            const token = (0, auth_util_1.signToken)({
+                sub: member.id,
+                role: 'MEMBER',
+                restaurantId: restaurant.id,
+                type: 'member',
+            });
+            return {
+                accountType: 'member',
+                token,
+                member: await this.memberProfile(member.id),
+            };
+        }
+        const user = await this.prisma.user.findUnique({
+            where: { email: normalizedEmail },
+        });
+        if (user) {
+            const ok = await (0, auth_util_1.comparePassword)(password, user.passwordHash);
+            if (!ok)
+                throw new common_1.UnauthorizedException('Invalid credentials');
+            const token = (0, auth_util_1.signToken)({
+                sub: user.id,
+                role: user.role,
+                restaurantId: user.restaurantId ?? undefined,
+                type: 'staff',
+            });
+            return {
+                accountType: 'staff',
+                token,
+                staff: await this.staffProfile(user.id),
+            };
+        }
+        throw new common_1.UnauthorizedException('Invalid credentials');
+    }
     async loginMember(restaurantSlug, email, password) {
         const restaurant = await this.restaurants.findBySlug(restaurantSlug);
         if (!restaurant)
@@ -110,14 +160,58 @@ let AuthService = class AuthService {
         });
         return {
             token,
-            user: {
-                id: user.id,
-                email: user.email,
-                displayName: user.displayName,
-                role: user.role,
-                restaurantId: user.restaurantId,
-            },
+            user: await this.staffProfile(user.id),
         };
+    }
+    async staffProfile(userId) {
+        const user = await this.prisma.user.findUniqueOrThrow({
+            where: { id: userId },
+            include: { restaurant: true },
+        });
+        return {
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+            role: user.role,
+            restaurantId: user.restaurantId,
+            restaurant: user.restaurant
+                ? {
+                    slug: user.restaurant.slug,
+                    name: user.restaurant.name,
+                    appDisplayName: user.restaurant.appDisplayName,
+                    primaryColor: user.restaurant.primaryColor,
+                }
+                : null,
+        };
+    }
+    async updateStaffProfile(userId, data) {
+        const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+        if (data.email && data.email.toLowerCase() !== user.email) {
+            const taken = await this.prisma.user.findUnique({
+                where: { email: data.email.toLowerCase() },
+            });
+            if (taken)
+                throw new common_1.ConflictException('Email already in use');
+        }
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                displayName: data.displayName?.trim() || undefined,
+                email: data.email?.toLowerCase(),
+            },
+        });
+        return this.staffProfile(userId);
+    }
+    async changeStaffPassword(userId, currentPassword, newPassword) {
+        const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+        const ok = await (0, auth_util_1.comparePassword)(currentPassword, user.passwordHash);
+        if (!ok)
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash: await (0, auth_util_1.hashPassword)(newPassword) },
+        });
+        return { success: true };
     }
     async memberProfile(memberId) {
         const member = await this.prisma.member.findUniqueOrThrow({
@@ -135,6 +229,7 @@ let AuthService = class AuthService {
             phone: member.phone,
             avatarUrl: member.avatarUrl,
             birthday: member.birthday,
+            referralCode: member.referralCode,
             loyalty: this.loyalty.memberSummary(member),
             restaurant: {
                 slug: member.restaurant.slug,
@@ -189,6 +284,28 @@ let AuthService = class AuthService {
             data: { passwordHash: await (0, auth_util_1.hashPassword)(newPassword) },
         });
         return { success: true };
+    }
+    async createBooking(memberId, data) {
+        const member = await this.prisma.member.findUniqueOrThrow({
+            where: { id: memberId },
+            include: { restaurant: true },
+        });
+        const booking = await this.prisma.booking.create({
+            data: {
+                restaurantId: member.restaurantId,
+                memberId: member.id,
+                partySize: data.partySize,
+                bookedFor: new Date(data.bookedFor),
+            },
+        });
+        await this.prisma.memberNotification.create({
+            data: {
+                memberId: member.id,
+                title: 'Table booked',
+                body: `Your table for ${data.partySize} on ${new Date(data.bookedFor).toLocaleString()} is confirmed at ${member.restaurant.name}.`,
+            },
+        });
+        return booking;
     }
     async updateMemberAvatar(memberId, filename) {
         const member = await this.prisma.member.findUniqueOrThrow({

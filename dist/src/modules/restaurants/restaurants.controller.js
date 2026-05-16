@@ -27,6 +27,9 @@ let RestaurantsController = class RestaurantsController {
     branding(slug) {
         return this.restaurants.getBranding(slug);
     }
+    campaigns(slug) {
+        return this.restaurants.listCampaigns(slug);
+    }
 };
 exports.RestaurantsController = RestaurantsController;
 __decorate([
@@ -45,6 +48,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], RestaurantsController.prototype, "branding", null);
+__decorate([
+    (0, common_1.Get)(':slug/campaigns'),
+    (0, swagger_1.ApiOperation)({ summary: 'Engagement campaigns for mobile app (birthday, seasonal, etc.)' }),
+    __param(0, (0, common_1.Param)('slug')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], RestaurantsController.prototype, "campaigns", null);
 exports.RestaurantsController = RestaurantsController = __decorate([
     (0, swagger_1.ApiTags)('Restaurants'),
     (0, common_1.Controller)('restaurants'),

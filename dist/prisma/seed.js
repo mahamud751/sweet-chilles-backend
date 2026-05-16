@@ -37,18 +37,68 @@ const client_1 = require("@prisma/client");
 const client_2 = require("@prisma/client");
 const bcrypt = __importStar(require("bcryptjs"));
 const prisma = new client_2.PrismaClient();
+function daysFromNow(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d;
+}
+function daysAgo(days) {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d;
+}
+async function ensureActiveVoucher(restaurantId, memberId, type, percentOff, validDays) {
+    const existing = await prisma.voucher.findFirst({
+        where: { memberId, type, status: client_1.VoucherStatus.ACTIVE },
+    });
+    if (existing)
+        return existing;
+    return prisma.voucher.create({
+        data: {
+            restaurantId,
+            memberId,
+            type,
+            percentOff,
+            validUntil: daysFromNow(validDays),
+        },
+    });
+}
+async function ensureHistoryVoucher(restaurantId, memberId, type, percentOff, status, daysOffset) {
+    const existing = await prisma.voucher.findFirst({
+        where: { memberId, type, status },
+    });
+    if (existing)
+        return existing;
+    const validUntil = status === client_1.VoucherStatus.EXPIRED
+        ? daysAgo(Math.abs(daysOffset))
+        : daysFromNow(30);
+    return prisma.voucher.create({
+        data: {
+            restaurantId,
+            memberId,
+            type,
+            percentOff,
+            status,
+            validUntil,
+            redeemedAt: status === client_1.VoucherStatus.REDEEMED ? daysAgo(daysOffset) : null,
+        },
+    });
+}
 async function main() {
     const restaurant = await prisma.restaurant.upsert({
         where: { slug: 'sweet-chillies' },
         create: {
             slug: 'sweet-chillies',
             name: 'Sweet Chillies',
-            appDisplayName: 'Sweet Chillies Members Club',
-            tagline: 'Turn followers into loyal members',
+            appDisplayName: 'Sweet Chillies',
+            tagline: null,
             primaryColor: '#F15A24',
             welcomeDiscountPercent: 30,
         },
-        update: {},
+        update: {
+            appDisplayName: 'Sweet Chillies',
+            tagline: null,
+        },
     });
     const ownerHash = await bcrypt.hash('owner123', 10);
     await prisma.user.upsert({
@@ -60,7 +110,19 @@ async function main() {
             displayName: 'Sweet Chillies Owner',
             restaurantId: restaurant.id,
         },
-        update: {},
+        update: { passwordHash: ownerHash },
+    });
+    const staffHash = await bcrypt.hash('staff123', 10);
+    await prisma.user.upsert({
+        where: { email: 'staff@sweetchillies.co.uk' },
+        create: {
+            email: 'staff@sweetchillies.co.uk',
+            passwordHash: staffHash,
+            role: client_1.UserRole.RESTAURANT_STAFF,
+            displayName: 'Sweet Chillies Staff',
+            restaurantId: restaurant.id,
+        },
+        update: { passwordHash: staffHash },
     });
     const memberHash = await bcrypt.hash('123456', 10);
     const demoMember = await prisma.member.upsert({
@@ -74,27 +136,24 @@ async function main() {
             restaurantId: restaurant.id,
             email: 'pino@gmail.com',
             passwordHash: memberHash,
-            name: 'pino',
+            name: 'Mahamud Pino',
             phone: '01789999751',
+            birthday: new Date('1990-06-15'),
+            loyaltyStage: client_1.LoyaltyStage.LOYALTY_ACTIVE,
+            loyaltyVisitsRemaining: 3,
         },
-        update: { passwordHash: memberHash, name: 'pino' },
+        update: {
+            passwordHash: memberHash,
+            name: 'Mahamud Pino',
+            loyaltyStage: client_1.LoyaltyStage.LOYALTY_ACTIVE,
+            loyaltyVisitsRemaining: 3,
+        },
     });
-    const existingVoucher = await prisma.voucher.findFirst({
-        where: { memberId: demoMember.id, status: 'ACTIVE' },
-    });
-    if (!existingVoucher) {
-        const validUntil = new Date();
-        validUntil.setDate(validUntil.getDate() + 30);
-        await prisma.voucher.create({
-            data: {
-                restaurantId: restaurant.id,
-                memberId: demoMember.id,
-                type: 'WELCOME',
-                percentOff: 30,
-                validUntil,
-            },
-        });
-    }
+    await ensureActiveVoucher(restaurant.id, demoMember.id, client_1.VoucherType.WELCOME, 30, 30);
+    await ensureActiveVoucher(restaurant.id, demoMember.id, client_1.VoucherType.RETURN, 20, 45);
+    await ensureActiveVoucher(restaurant.id, demoMember.id, client_1.VoucherType.LOYALTY, 15, 90);
+    await ensureHistoryVoucher(restaurant.id, demoMember.id, client_1.VoucherType.THIRD, 15, client_1.VoucherStatus.REDEEMED, 12);
+    await ensureHistoryVoucher(restaurant.id, demoMember.id, client_1.VoucherType.WELCOME, 10, client_1.VoucherStatus.EXPIRED, 45);
     await prisma.competition.upsert({
         where: { id: 'seed-competition-sweet-chillies' },
         create: {
@@ -130,9 +189,14 @@ async function main() {
             update: {},
         });
     }
+    const activeCount = await prisma.voucher.count({
+        where: { memberId: demoMember.id, status: client_1.VoucherStatus.ACTIVE },
+    });
     console.log('Seeded restaurant:', restaurant.slug);
-    console.log('Owner login: owner@sweetchillies.co.uk / owner123');
-    console.log('Demo member: pino@gmail.com / 123456');
+    console.log('Owner (Staff tab): owner@sweetchillies.co.uk / owner123');
+    console.log('Staff: staff@sweetchillies.co.uk / staff123');
+    console.log('Member: pino@gmail.com / 123456');
+    console.log(`Demo member active vouchers: ${activeCount}`);
 }
 main()
     .catch((e) => {

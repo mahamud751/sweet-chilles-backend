@@ -1,88 +1,110 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { UserRole, VoucherStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RestaurantsService } from '../restaurants/restaurants.service';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly restaurants: RestaurantsService,
+  ) {}
 
-  async stats(restaurantId: string) {
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const ninetyDaysAgo = new Date(now);
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    const [totalMembers, activeMembers, lostMembers, birthdayThisMonth, voucherRedemptions, visits, orders, bookings] =
-      await Promise.all([
-        this.prisma.member.count({ where: { restaurantId } }),
-        this.prisma.member.count({
-          where: { restaurantId, lastVisitAt: { gte: thirtyDaysAgo } },
-        }),
-        this.prisma.member.count({
-          where: {
-            restaurantId,
-            OR: [{ lastVisitAt: null }, { lastVisitAt: { lt: ninetyDaysAgo } }],
-          },
-        }),
-        this.prisma.member.count({
-          where: {
-            restaurantId,
-            birthday: { not: null },
-          },
-        }),
-        this.prisma.voucher.count({
-          where: { restaurantId, status: 'REDEEMED' },
-        }),
-        this.prisma.visit.count({ where: { restaurantId } }),
-        this.prisma.order.count({ where: { restaurantId } }),
-        this.prisma.booking.count({ where: { restaurantId } }),
-      ]);
-
-    const goldMembers = await this.prisma.member.count({
-      where: { restaurantId, isGoldMember: true },
+  async resolveRestaurantId(userId: string, slug?: string): Promise<string> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
     });
 
-    const revenueFromVisits = await this.prisma.visit.aggregate({
-      where: { restaurantId, billAmount: { not: null } },
-      _sum: { billAmount: true, discountAmount: true },
-    });
+    if (user.restaurantId) return user.restaurantId;
 
-    return {
-      customers: {
-        total: totalMembers,
-        active: activeMembers,
-        lost: lostMembers,
-        gold: goldMembers,
-        birthdayMembers: birthdayThisMonth,
-      },
-      revenue: {
-        totalBillAmount: revenueFromVisits._sum.billAmount ?? 0,
-        totalDiscountGiven: revenueFromVisits._sum.discountAmount ?? 0,
-        voucherRedemptions,
-        repeatVisits: visits,
-        orders,
-        bookings,
-      },
-      growthTargets: {
-        month1to2Members: '50–150',
-        month6to8RevenueUplift: '£3,000–£5,000',
-      },
-    };
+    if (user.role === UserRole.SAVASAACHI_ADMIN && slug) {
+      const restaurant = await this.restaurants.findBySlug(slug);
+      if (restaurant) return restaurant.id;
+    }
+
+    const fallback = await this.prisma.restaurant.findFirst({
+      where: { slug: slug ?? 'sweet-chillies' },
+    });
+    if (!fallback) throw new ForbiddenException('No restaurant access');
+    return fallback.id;
   }
 
-  members(restaurantId: string) {
-    return this.prisma.member.findMany({
+  async summary(userId: string, slug?: string) {
+    const restaurantId = await this.resolveRestaurantId(userId, slug);
+    const [members, activeVouchers, redeemedVouchers, campaigns] =
+      await Promise.all([
+        this.prisma.member.count({ where: { restaurantId } }),
+        this.prisma.voucher.count({
+          where: { restaurantId, status: VoucherStatus.ACTIVE },
+        }),
+        this.prisma.voucher.count({
+          where: { restaurantId, status: VoucherStatus.REDEEMED },
+        }),
+        this.prisma.campaignTemplate.count({ where: { restaurantId } }),
+      ]);
+
+    return { members, activeVouchers, redeemedVouchers, campaigns };
+  }
+
+  async listMembers(userId: string, slug?: string) {
+    const restaurantId = await this.resolveRestaurantId(userId, slug);
+    const members = await this.prisma.member.findMany({
       where: { restaurantId },
       orderBy: { createdAt: 'desc' },
+      take: 200,
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
         loyaltyStage: true,
         isGoldMember: true,
-        lastVisitAt: true,
         createdAt: true,
+        _count: { select: { vouchers: true } },
       },
+    });
+
+    return members.map(m => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      phone: m.phone,
+      loyaltyStage: m.loyaltyStage,
+      isGoldMember: m.isGoldMember,
+      joinedAt: m.createdAt,
+      voucherCount: m._count.vouchers,
+    }));
+  }
+
+  async listVouchers(userId: string, slug?: string) {
+    const restaurantId = await this.resolveRestaurantId(userId, slug);
+    const vouchers = await this.prisma.voucher.findMany({
+      where: { restaurantId },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+      include: {
+        member: { select: { name: true, email: true } },
+      },
+    });
+
+    return vouchers.map(v => ({
+      id: v.id,
+      type: v.type,
+      percentOff: v.percentOff,
+      status: v.status,
+      validUntil: v.validUntil,
+      redeemedAt: v.redeemedAt,
+      qrToken: v.qrToken,
+      memberName: v.member.name,
+      memberEmail: v.member.email,
+    }));
+  }
+
+  async listCampaigns(userId: string, slug?: string) {
+    const restaurantId = await this.resolveRestaurantId(userId, slug);
+    return this.prisma.campaignTemplate.findMany({
+      where: { restaurantId },
+      orderBy: { type: 'asc' },
     });
   }
 }

@@ -12,9 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RestaurantsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const campaigns_service_1 = require("../campaigns/campaigns.service");
 let RestaurantsService = class RestaurantsService {
-    constructor(prisma) {
+    constructor(prisma, campaigns) {
         this.prisma = prisma;
+        this.campaigns = campaigns;
     }
     findBySlug(slug) {
         return this.prisma.restaurant.findFirst({
@@ -33,10 +35,18 @@ let RestaurantsService = class RestaurantsService {
             orderBy: { name: 'asc' },
         });
     }
+    async listCampaigns(slug) {
+        const restaurant = await this.findBySlug(slug);
+        if (!restaurant)
+            throw new common_1.NotFoundException(`Restaurant "${slug}" not found`);
+        await this.campaigns.ensureDefaults(restaurant.id);
+        return this.campaigns.list(restaurant.id);
+    }
 };
 exports.RestaurantsService = RestaurantsService;
 exports.RestaurantsService = RestaurantsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        campaigns_service_1.CampaignsService])
 ], RestaurantsService);
 //# sourceMappingURL=restaurants.service.js.map

@@ -30,4 +30,13 @@ export declare class RestaurantsController {
         createdAt: Date;
         updatedAt: Date;
     }>;
+    campaigns(slug: string): Promise<{
+        type: import(".prisma/client").$Enums.CampaignType;
+        id: string;
+        createdAt: Date;
+        restaurantId: string;
+        title: string;
+        bodyTemplate: string;
+        isEnabled: boolean;
+    }[]>;
 }

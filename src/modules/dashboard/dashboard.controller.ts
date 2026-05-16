@@ -1,6 +1,6 @@
-import { Controller, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { verifyToken } from '../../common/auth.util';
+import { staffPayloadFromHeader } from '../../common/staff-auth.util';
 import { DashboardService } from './dashboard.service';
 
 @ApiTags('Dashboard')
@@ -8,30 +8,47 @@ import { DashboardService } from './dashboard.service';
 export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}
 
-  @Get('stats')
+  @Get('summary')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Owner dashboard — members, revenue, redemptions' })
-  stats(@Headers('authorization') authHeader?: string) {
-    const restaurantId = this.restaurantId(authHeader);
-    return this.dashboard.stats(restaurantId);
+  @ApiOperation({ summary: 'Counts for owner/admin dashboard' })
+  summary(
+    @Headers('authorization') authHeader: string | undefined,
+    @Query('slug') slug?: string,
+  ) {
+    const { sub } = staffPayloadFromHeader(authHeader);
+    return this.dashboard.summary(sub, slug);
   }
 
   @Get('members')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Member list for restaurant CRM' })
-  members(@Headers('authorization') authHeader?: string) {
-    const restaurantId = this.restaurantId(authHeader);
-    return this.dashboard.members(restaurantId);
+  @ApiOperation({ summary: 'All loyalty members for this restaurant' })
+  members(
+    @Headers('authorization') authHeader: string | undefined,
+    @Query('slug') slug?: string,
+  ) {
+    const { sub } = staffPayloadFromHeader(authHeader);
+    return this.dashboard.listMembers(sub, slug);
   }
 
-  private restaurantId(authHeader?: string): string {
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException();
-    }
-    const payload = verifyToken(authHeader.slice(7));
-    if (payload.type !== 'staff' || !payload.restaurantId) {
-      throw new UnauthorizedException('Staff access required');
-    }
-    return payload.restaurantId;
+  @Get('vouchers')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'All vouchers/rewards for this restaurant' })
+  vouchers(
+    @Headers('authorization') authHeader: string | undefined,
+    @Query('slug') slug?: string,
+  ) {
+    const { sub } = staffPayloadFromHeader(authHeader);
+    return this.dashboard.listVouchers(sub, slug);
+  }
+
+  @Get('campaigns')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Campaign templates / offers' })
+  campaigns(
+    @Headers('authorization') authHeader: string | undefined,
+    @Query('slug') slug?: string,
+  ) {
+    const { sub } = staffPayloadFromHeader(authHeader);
+    return this.dashboard.listCampaigns(sub, slug);
   }
 }
