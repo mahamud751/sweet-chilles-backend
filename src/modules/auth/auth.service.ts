@@ -124,13 +124,30 @@ export class AuthService {
 
     return {
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-        restaurantId: user.restaurantId,
-      },
+      user: await this.staffProfile(user.id),
+    };
+  }
+
+  async staffProfile(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: { restaurant: true },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role,
+      restaurantId: user.restaurantId,
+      restaurant: user.restaurant
+        ? {
+            slug: user.restaurant.slug,
+            name: user.restaurant.name,
+            appDisplayName: user.restaurant.appDisplayName,
+            primaryColor: user.restaurant.primaryColor,
+          }
+        : null,
     };
   }
 

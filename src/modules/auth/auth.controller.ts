@@ -62,10 +62,15 @@ export class AuthController {
 
   @Get('me')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Current member profile' })
-  me(@Headers('authorization') authHeader?: string) {
-    const memberId = this.memberIdFromHeader(authHeader);
-    return this.auth.memberProfile(memberId);
+  @ApiOperation({ summary: 'Current session (member or staff/admin)' })
+  async me(@Headers('authorization') authHeader?: string) {
+    const payload = this.payloadFromHeader(authHeader);
+    if (payload.type === 'member') {
+      const member = await this.auth.memberProfile(payload.sub);
+      return { accountType: 'member' as const, member };
+    }
+    const staff = await this.auth.staffProfile(payload.sub);
+    return { accountType: 'staff' as const, staff };
   }
 
   @Patch('me')
@@ -150,11 +155,15 @@ export class AuthController {
   }
 
   private memberIdFromHeader(authHeader?: string): string {
+    const payload = this.payloadFromHeader(authHeader);
+    if (payload.type !== 'member') throw new UnauthorizedException('Members only');
+    return payload.sub;
+  }
+
+  private payloadFromHeader(authHeader?: string) {
     if (!authHeader?.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing bearer token');
     }
-    const payload = verifyToken(authHeader.slice(7));
-    if (payload.type !== 'member') throw new UnauthorizedException('Members only');
-    return payload.sub;
+    return verifyToken(authHeader.slice(7));
   }
 }

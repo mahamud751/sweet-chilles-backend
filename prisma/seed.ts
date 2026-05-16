@@ -82,12 +82,15 @@ async function main() {
     create: {
       slug: 'sweet-chillies',
       name: 'Sweet Chillies',
-      appDisplayName: 'Sweet Chillies Members Club',
-      tagline: 'Turn followers into loyal members',
+      appDisplayName: 'Sweet Chillies',
+      tagline: null,
       primaryColor: '#F15A24',
       welcomeDiscountPercent: 30,
     },
-    update: {},
+    update: {
+      appDisplayName: 'Sweet Chillies',
+      tagline: null,
+    },
   });
 
   const ownerHash = await bcrypt.hash('owner123', 10);
@@ -100,7 +103,20 @@ async function main() {
       displayName: 'Sweet Chillies Owner',
       restaurantId: restaurant.id,
     },
-    update: {},
+    update: { passwordHash: ownerHash },
+  });
+
+  const staffHash = await bcrypt.hash('staff123', 10);
+  await prisma.user.upsert({
+    where: { email: 'staff@sweetchillies.co.uk' },
+    create: {
+      email: 'staff@sweetchillies.co.uk',
+      passwordHash: staffHash,
+      role: UserRole.RESTAURANT_STAFF,
+      displayName: 'Sweet Chillies Staff',
+      restaurantId: restaurant.id,
+    },
+    update: { passwordHash: staffHash },
   });
 
   const memberHash = await bcrypt.hash('123456', 10);
@@ -195,8 +211,9 @@ async function main() {
   });
 
   console.log('Seeded restaurant:', restaurant.slug);
-  console.log('Owner login: owner@sweetchillies.co.uk / owner123');
-  console.log('Demo member: pino@gmail.com / 123456');
+  console.log('Owner (Staff tab): owner@sweetchillies.co.uk / owner123');
+  console.log('Staff: staff@sweetchillies.co.uk / staff123');
+  console.log('Member: pino@gmail.com / 123456');
   console.log(`Demo member active vouchers: ${activeCount}`);
 }
 
