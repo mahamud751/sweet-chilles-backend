@@ -112,6 +112,50 @@ export class AuthController {
     );
   }
 
+  @Post('staff/me/avatar')
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { avatar: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({ summary: 'Upload staff/owner/admin profile photo' })
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          ensureAvatarDir();
+          cb(null, AVATAR_DIR);
+        },
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname).toLowerCase() || '.jpg';
+          const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext)
+            ? ext
+            : '.jpg';
+          cb(null, `${randomUUID()}${safeExt}`);
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|png|webp|jpg)$/)) {
+          cb(new BadRequestException('Only JPEG, PNG, or WebP images allowed'), false);
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  uploadStaffAvatar(
+    @Headers('authorization') authHeader: string | undefined,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const payload = staffPayloadFromHeader(authHeader);
+    if (!file) throw new BadRequestException('No image uploaded');
+    return this.auth.updateStaffAvatar(payload.sub, file.filename);
+  }
+
   @Patch('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update member profile (name, email, phone, birthday)' })

@@ -26,8 +26,11 @@ let DashboardController = class DashboardController {
         const { sub } = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
         return this.dashboard.summary(sub, slug);
     }
-    members(authHeader, slug) {
+    members(authHeader, slug, q) {
         const { sub } = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
+        if (q?.trim()) {
+            return this.dashboard.searchMembers(sub, q.trim(), slug);
+        }
         return this.dashboard.listMembers(sub, slug);
     }
     createMember(authHeader, body, slug) {
@@ -92,8 +95,9 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'All loyalty members for this restaurant' }),
     __param(0, (0, common_1.Headers)('authorization')),
     __param(1, (0, common_1.Query)('slug')),
+    __param(2, (0, common_1.Query)('q')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "members", null);
 __decorate([

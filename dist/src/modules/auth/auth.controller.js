@@ -66,6 +66,12 @@ let AuthController = class AuthController {
         const payload = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
         return this.auth.changeStaffPassword(payload.sub, body.currentPassword, body.newPassword);
     }
+    uploadStaffAvatar(authHeader, file) {
+        const payload = (0, staff_auth_util_1.staffPayloadFromHeader)(authHeader);
+        if (!file)
+            throw new common_1.BadRequestException('No image uploaded');
+        return this.auth.updateStaffAvatar(payload.sub, file.filename);
+    }
     updateMe(authHeader, body) {
         const memberId = this.memberIdFromHeader(authHeader);
         return this.auth.updateMemberProfile(memberId, body);
@@ -164,6 +170,46 @@ __decorate([
     __metadata("design:paramtypes", [Object, update_staff_profile_dto_1.ChangeStaffPasswordDto]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "changeStaffPassword", null);
+__decorate([
+    (0, common_1.Post)('staff/me/avatar'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: { avatar: { type: 'string', format: 'binary' } },
+        },
+    }),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload staff/owner/admin profile photo' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('avatar', {
+        storage: (0, multer_1.diskStorage)({
+            destination: (_req, _file, cb) => {
+                ensureAvatarDir();
+                cb(null, AVATAR_DIR);
+            },
+            filename: (_req, file, cb) => {
+                const ext = (0, path_1.extname)(file.originalname).toLowerCase() || '.jpg';
+                const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext)
+                    ? ext
+                    : '.jpg';
+                cb(null, `${(0, crypto_1.randomUUID)()}${safeExt}`);
+            },
+        }),
+        limits: { fileSize: 5 * 1024 * 1024 },
+        fileFilter: (_req, file, cb) => {
+            if (!file.mimetype.match(/^image\/(jpeg|png|webp|jpg)$/)) {
+                cb(new common_1.BadRequestException('Only JPEG, PNG, or WebP images allowed'), false);
+                return;
+            }
+            cb(null, true);
+        },
+    })),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "uploadStaffAvatar", null);
 __decorate([
     (0, common_1.Patch)('me'),
     (0, swagger_1.ApiBearerAuth)(),

@@ -14,6 +14,11 @@ export declare class DashboardService {
         redeemedVouchers: number;
         campaigns: number;
     }>;
+    searchMembers(userId: string, query: string, slug?: string): Promise<{
+        id: string;
+        name: string;
+        email: string;
+    }[]>;
     listMembers(userId: string, slug?: string): Promise<{
         id: string;
         name: string;

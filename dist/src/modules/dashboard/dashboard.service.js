@@ -60,6 +60,25 @@ let DashboardService = class DashboardService {
         ]);
         return { members, activeVouchers, redeemedVouchers, campaigns };
     }
+    async searchMembers(userId, query, slug) {
+        const restaurantId = await this.resolveRestaurantId(userId, slug);
+        const q = query.trim();
+        if (!q)
+            return [];
+        const members = await this.prisma.member.findMany({
+            where: {
+                restaurantId,
+                OR: [
+                    { email: { contains: q, mode: 'insensitive' } },
+                    { name: { contains: q, mode: 'insensitive' } },
+                ],
+            },
+            orderBy: { name: 'asc' },
+            take: 12,
+            select: { id: true, name: true, email: true },
+        });
+        return members;
+    }
     async listMembers(userId, slug) {
         const restaurantId = await this.resolveRestaurantId(userId, slug);
         const members = await this.prisma.member.findMany({

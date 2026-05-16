@@ -113,6 +113,7 @@ export declare class AuthService {
             id: string;
             email: string;
             displayName: string;
+            avatarUrl: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             restaurantId: string | null;
             restaurant: {
@@ -176,6 +177,7 @@ export declare class AuthService {
             id: string;
             email: string;
             displayName: string;
+            avatarUrl: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             restaurantId: string | null;
             restaurant: {
@@ -190,6 +192,7 @@ export declare class AuthService {
         id: string;
         email: string;
         displayName: string;
+        avatarUrl: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         restaurantId: string | null;
         restaurant: {
@@ -206,6 +209,7 @@ export declare class AuthService {
         id: string;
         email: string;
         displayName: string;
+        avatarUrl: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         restaurantId: string | null;
         restaurant: {
@@ -366,5 +370,19 @@ export declare class AuthService {
             read: boolean;
             sentAt: Date;
         }[];
+    }>;
+    updateStaffAvatar(userId: string, filename: string): Promise<{
+        id: string;
+        email: string;
+        displayName: string;
+        avatarUrl: string | null;
+        role: import(".prisma/client").$Enums.UserRole;
+        restaurantId: string | null;
+        restaurant: {
+            slug: string;
+            name: string;
+            appDisplayName: string;
+            primaryColor: string;
+        } | null;
     }>;
 }

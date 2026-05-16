@@ -9,15 +9,10 @@ export declare class DashboardController {
         redeemedVouchers: number;
         campaigns: number;
     }>;
-    members(authHeader: string | undefined, slug?: string): Promise<{
+    members(authHeader: string | undefined, slug?: string, q?: string): Promise<{
         id: string;
         name: string;
         email: string;
-        phone: string | null;
-        loyaltyStage: import(".prisma/client").$Enums.LoyaltyStage;
-        isGoldMember: boolean;
-        joinedAt: Date;
-        voucherCount: number;
     }[]>;
     createMember(authHeader: string | undefined, body: CreateDashboardMemberDto, slug?: string): Promise<{
         id: string;

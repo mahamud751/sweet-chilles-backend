@@ -43,8 +43,12 @@ export class DashboardController {
   members(
     @Headers('authorization') authHeader: string | undefined,
     @Query('slug') slug?: string,
+    @Query('q') q?: string,
   ) {
     const { sub } = staffPayloadFromHeader(authHeader);
+    if (q?.trim()) {
+      return this.dashboard.searchMembers(sub, q.trim(), slug);
+    }
     return this.dashboard.listMembers(sub, slug);
   }
 

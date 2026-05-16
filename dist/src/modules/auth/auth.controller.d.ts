@@ -106,6 +106,7 @@ export declare class AuthController {
             id: string;
             email: string;
             displayName: string;
+            avatarUrl: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             restaurantId: string | null;
             restaurant: {
@@ -169,6 +170,7 @@ export declare class AuthController {
             id: string;
             email: string;
             displayName: string;
+            avatarUrl: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             restaurantId: string | null;
             restaurant: {
@@ -231,6 +233,7 @@ export declare class AuthController {
             id: string;
             email: string;
             displayName: string;
+            avatarUrl: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             restaurantId: string | null;
             restaurant: {
@@ -246,6 +249,7 @@ export declare class AuthController {
         id: string;
         email: string;
         displayName: string;
+        avatarUrl: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         restaurantId: string | null;
         restaurant: {
@@ -257,6 +261,20 @@ export declare class AuthController {
     }>;
     changeStaffPassword(authHeader: string | undefined, body: ChangeStaffPasswordDto): Promise<{
         success: boolean;
+    }>;
+    uploadStaffAvatar(authHeader: string | undefined, file: Express.Multer.File): Promise<{
+        id: string;
+        email: string;
+        displayName: string;
+        avatarUrl: string | null;
+        role: import(".prisma/client").$Enums.UserRole;
+        restaurantId: string | null;
+        restaurant: {
+            slug: string;
+            name: string;
+            appDisplayName: string;
+            primaryColor: string;
+        } | null;
     }>;
     updateMe(authHeader: string | undefined, body: UpdateMemberProfileDto): Promise<{
         id: string;

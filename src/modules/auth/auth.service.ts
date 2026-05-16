@@ -194,6 +194,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
       role: user.role,
       restaurantId: user.restaurantId,
       restaurant: user.restaurant
@@ -387,5 +388,25 @@ export class AuthService {
     });
 
     return this.memberProfile(memberId);
+  }
+
+  async updateStaffAvatar(userId: string, filename: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    const avatarUrl = `/uploads/avatars/${filename}`;
+
+    if (user.avatarUrl?.startsWith('/uploads/')) {
+      const oldPath = join(process.cwd(), user.avatarUrl.replace(/^\//, ''));
+      await unlink(oldPath).catch(() => undefined);
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+    });
+
+    return this.staffProfile(userId);
   }
 }

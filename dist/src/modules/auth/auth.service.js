@@ -172,6 +172,7 @@ let AuthService = class AuthService {
             id: user.id,
             email: user.email,
             displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
             role: user.role,
             restaurantId: user.restaurantId,
             restaurant: user.restaurant
@@ -321,6 +322,21 @@ let AuthService = class AuthService {
             data: { avatarUrl },
         });
         return this.memberProfile(memberId);
+    }
+    async updateStaffAvatar(userId, filename) {
+        const user = await this.prisma.user.findUniqueOrThrow({
+            where: { id: userId },
+        });
+        const avatarUrl = `/uploads/avatars/${filename}`;
+        if (user.avatarUrl?.startsWith('/uploads/')) {
+            const oldPath = (0, path_1.join)(process.cwd(), user.avatarUrl.replace(/^\//, ''));
+            await (0, promises_1.unlink)(oldPath).catch(() => undefined);
+        }
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { avatarUrl },
+        });
+        return this.staffProfile(userId);
     }
 };
 exports.AuthService = AuthService;
