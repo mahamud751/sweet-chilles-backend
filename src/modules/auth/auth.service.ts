@@ -151,6 +151,7 @@ export class AuthService {
       phone: member.phone,
       avatarUrl: member.avatarUrl,
       birthday: member.birthday,
+      referralCode: member.referralCode,
       loyalty: this.loyalty.memberSummary(member),
       restaurant: {
         slug: member.restaurant.slug,
@@ -223,6 +224,35 @@ export class AuthService {
     });
 
     return { success: true };
+  }
+
+  async createBooking(
+    memberId: string,
+    data: { partySize: number; bookedFor: string },
+  ) {
+    const member = await this.prisma.member.findUniqueOrThrow({
+      where: { id: memberId },
+      include: { restaurant: true },
+    });
+
+    const booking = await this.prisma.booking.create({
+      data: {
+        restaurantId: member.restaurantId,
+        memberId: member.id,
+        partySize: data.partySize,
+        bookedFor: new Date(data.bookedFor),
+      },
+    });
+
+    await this.prisma.memberNotification.create({
+      data: {
+        memberId: member.id,
+        title: 'Table booked',
+        body: `Your table for ${data.partySize} on ${new Date(data.bookedFor).toLocaleString()} is confirmed at ${member.restaurant.name}.`,
+      },
+    });
+
+    return booking;
   }
 
   async updateMemberAvatar(memberId: string, filename: string) {

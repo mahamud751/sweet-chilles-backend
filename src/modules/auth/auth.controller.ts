@@ -23,6 +23,7 @@ import {
   ChangeMemberPasswordDto,
   UpdateMemberProfileDto,
 } from './dto/update-profile.dto';
+import { CreateBookingDto } from './dto/create-booking.dto';
 import { AuthService } from './auth.service';
 
 const AVATAR_DIR = join(process.cwd(), 'uploads', 'avatars');
@@ -91,6 +92,17 @@ export class AuthController {
       body.currentPassword,
       body.newPassword,
     );
+  }
+
+  @Post('me/bookings')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Book a table' })
+  createBooking(
+    @Headers('authorization') authHeader: string | undefined,
+    @Body() body: CreateBookingDto,
+  ) {
+    const memberId = this.memberIdFromHeader(authHeader);
+    return this.auth.createBooking(memberId, body);
   }
 
   @Post('me/avatar')

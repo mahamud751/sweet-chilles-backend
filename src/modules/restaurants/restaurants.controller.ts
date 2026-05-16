@@ -20,4 +20,10 @@ export class RestaurantsController {
   branding(@Param('slug') slug: string) {
     return this.restaurants.getBranding(slug);
   }
+
+  @Get(':slug/campaigns')
+  @ApiOperation({ summary: 'Engagement campaigns for mobile app (birthday, seasonal, etc.)' })
+  campaigns(@Param('slug') slug: string) {
+    return this.restaurants.listCampaigns(slug);
+  }
 }
