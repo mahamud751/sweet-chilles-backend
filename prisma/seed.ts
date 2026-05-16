@@ -1,8 +1,80 @@
-import { CompetitionStatus, UserRole } from '@prisma/client';
+import {
+  CompetitionStatus,
+  LoyaltyStage,
+  UserRole,
+  VoucherStatus,
+  VoucherType,
+} from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+function daysFromNow(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function daysAgo(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d;
+}
+
+async function ensureActiveVoucher(
+  restaurantId: string,
+  memberId: string,
+  type: VoucherType,
+  percentOff: number,
+  validDays: number,
+) {
+  const existing = await prisma.voucher.findFirst({
+    where: { memberId, type, status: VoucherStatus.ACTIVE },
+  });
+  if (existing) return existing;
+
+  return prisma.voucher.create({
+    data: {
+      restaurantId,
+      memberId,
+      type,
+      percentOff,
+      validUntil: daysFromNow(validDays),
+    },
+  });
+}
+
+async function ensureHistoryVoucher(
+  restaurantId: string,
+  memberId: string,
+  type: VoucherType,
+  percentOff: number,
+  status: 'REDEEMED' | 'EXPIRED',
+  daysOffset: number,
+) {
+  const existing = await prisma.voucher.findFirst({
+    where: { memberId, type, status },
+  });
+  if (existing) return existing;
+
+  const validUntil =
+    status === VoucherStatus.EXPIRED
+      ? daysAgo(Math.abs(daysOffset))
+      : daysFromNow(30);
+
+  return prisma.voucher.create({
+    data: {
+      restaurantId,
+      memberId,
+      type,
+      percentOff,
+      status,
+      validUntil,
+      redeemedAt: status === VoucherStatus.REDEEMED ? daysAgo(daysOffset) : null,
+    },
+  });
+}
 
 async function main() {
   const restaurant = await prisma.restaurant.upsert({
@@ -43,28 +115,42 @@ async function main() {
       restaurantId: restaurant.id,
       email: 'pino@gmail.com',
       passwordHash: memberHash,
-      name: 'pino',
+      name: 'Mahamud Pino',
       phone: '01789999751',
+      birthday: new Date('1990-06-15'),
+      loyaltyStage: LoyaltyStage.LOYALTY_ACTIVE,
+      loyaltyVisitsRemaining: 3,
     },
-    update: { passwordHash: memberHash, name: 'pino' },
+    update: {
+      passwordHash: memberHash,
+      name: 'Mahamud Pino',
+      loyaltyStage: LoyaltyStage.LOYALTY_ACTIVE,
+      loyaltyVisitsRemaining: 3,
+    },
   });
 
-  const existingVoucher = await prisma.voucher.findFirst({
-    where: { memberId: demoMember.id, status: 'ACTIVE' },
-  });
-  if (!existingVoucher) {
-    const validUntil = new Date();
-    validUntil.setDate(validUntil.getDate() + 30);
-    await prisma.voucher.create({
-      data: {
-        restaurantId: restaurant.id,
-        memberId: demoMember.id,
-        type: 'WELCOME',
-        percentOff: 30,
-        validUntil,
-      },
-    });
-  }
+  // Active rewards — shown on Home "My Rewards" (up to 3 cards) and My Offers → Active
+  await ensureActiveVoucher(restaurant.id, demoMember.id, VoucherType.WELCOME, 30, 30);
+  await ensureActiveVoucher(restaurant.id, demoMember.id, VoucherType.RETURN, 20, 45);
+  await ensureActiveVoucher(restaurant.id, demoMember.id, VoucherType.LOYALTY, 15, 90);
+
+  // History — My Offers → Used / Expired tabs
+  await ensureHistoryVoucher(
+    restaurant.id,
+    demoMember.id,
+    VoucherType.THIRD,
+    15,
+    VoucherStatus.REDEEMED,
+    12,
+  );
+  await ensureHistoryVoucher(
+    restaurant.id,
+    demoMember.id,
+    VoucherType.WELCOME,
+    10,
+    VoucherStatus.EXPIRED,
+    45,
+  );
 
   await prisma.competition.upsert({
     where: { id: 'seed-competition-sweet-chillies' },
@@ -104,9 +190,14 @@ async function main() {
     });
   }
 
+  const activeCount = await prisma.voucher.count({
+    where: { memberId: demoMember.id, status: VoucherStatus.ACTIVE },
+  });
+
   console.log('Seeded restaurant:', restaurant.slug);
   console.log('Owner login: owner@sweetchillies.co.uk / owner123');
   console.log('Demo member: pino@gmail.com / 123456');
+  console.log(`Demo member active vouchers: ${activeCount}`);
 }
 
 main()
