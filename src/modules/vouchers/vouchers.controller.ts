@@ -41,6 +41,17 @@ export class VouchersController {
     });
   }
 
+  @Get('all')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'All member vouchers (active, redeemed, expired)' })
+  async all(@Headers('authorization') authHeader?: string) {
+    const memberId = this.memberId(authHeader);
+    return this.prisma.voucher.findMany({
+      where: { memberId },
+      orderBy: [{ status: 'asc' }, { validUntil: 'desc' }],
+    });
+  }
+
   @Post('redeem')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Staff scans QR — redeem voucher and advance loyalty journey' })

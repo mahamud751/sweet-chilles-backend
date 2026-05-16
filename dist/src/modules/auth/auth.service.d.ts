@@ -20,6 +20,7 @@ export declare class AuthService {
             name: string;
             email: string;
             phone: string | null;
+            avatarUrl: string | null;
             birthday: Date | null;
             loyalty: {
                 stage: import(".prisma/client").$Enums.LoyaltyStage;
@@ -64,6 +65,7 @@ export declare class AuthService {
             name: string;
             email: string;
             phone: string | null;
+            avatarUrl: string | null;
             birthday: Date | null;
             loyalty: {
                 stage: import(".prisma/client").$Enums.LoyaltyStage;
@@ -116,6 +118,99 @@ export declare class AuthService {
         name: string;
         email: string;
         phone: string | null;
+        avatarUrl: string | null;
+        birthday: Date | null;
+        loyalty: {
+            stage: import(".prisma/client").$Enums.LoyaltyStage;
+            stageLabel: string;
+            isGoldMember: boolean;
+            loyaltyVisitsRemaining: number;
+        };
+        restaurant: {
+            slug: string;
+            name: string;
+            appDisplayName: string;
+            primaryColor: string;
+        };
+        activeVouchers: {
+            type: import(".prisma/client").$Enums.VoucherType;
+            percentOff: number;
+            id: string;
+            createdAt: Date;
+            qrToken: string;
+            status: import(".prisma/client").$Enums.VoucherStatus;
+            validFrom: Date;
+            validUntil: Date;
+            redeemedAt: Date | null;
+            restaurantId: string;
+            memberId: string;
+            visitId: string | null;
+        }[];
+        notifications: {
+            id: string;
+            memberId: string;
+            title: string;
+            body: string;
+            read: boolean;
+            sentAt: Date;
+        }[];
+    }>;
+    updateMemberProfile(memberId: string, data: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        birthday?: string;
+    }): Promise<{
+        id: string;
+        name: string;
+        email: string;
+        phone: string | null;
+        avatarUrl: string | null;
+        birthday: Date | null;
+        loyalty: {
+            stage: import(".prisma/client").$Enums.LoyaltyStage;
+            stageLabel: string;
+            isGoldMember: boolean;
+            loyaltyVisitsRemaining: number;
+        };
+        restaurant: {
+            slug: string;
+            name: string;
+            appDisplayName: string;
+            primaryColor: string;
+        };
+        activeVouchers: {
+            type: import(".prisma/client").$Enums.VoucherType;
+            percentOff: number;
+            id: string;
+            createdAt: Date;
+            qrToken: string;
+            status: import(".prisma/client").$Enums.VoucherStatus;
+            validFrom: Date;
+            validUntil: Date;
+            redeemedAt: Date | null;
+            restaurantId: string;
+            memberId: string;
+            visitId: string | null;
+        }[];
+        notifications: {
+            id: string;
+            memberId: string;
+            title: string;
+            body: string;
+            read: boolean;
+            sentAt: Date;
+        }[];
+    }>;
+    changeMemberPassword(memberId: string, currentPassword: string, newPassword: string): Promise<{
+        success: boolean;
+    }>;
+    updateMemberAvatar(memberId: string, filename: string): Promise<{
+        id: string;
+        name: string;
+        email: string;
+        phone: string | null;
+        avatarUrl: string | null;
         birthday: Date | null;
         loyalty: {
             stage: import(".prisma/client").$Enums.LoyaltyStage;

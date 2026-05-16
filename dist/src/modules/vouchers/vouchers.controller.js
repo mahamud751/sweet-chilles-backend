@@ -42,6 +42,13 @@ let VouchersController = class VouchersController {
             orderBy: { validUntil: 'asc' },
         });
     }
+    async all(authHeader) {
+        const memberId = this.memberId(authHeader);
+        return this.prisma.voucher.findMany({
+            where: { memberId },
+            orderBy: [{ status: 'asc' }, { validUntil: 'desc' }],
+        });
+    }
     redeem(authHeader, body) {
         const staffId = this.staffIdOptional(authHeader);
         return this.loyalty.redeemByQrToken(body.qrToken, staffId, body.billAmount);
@@ -83,6 +90,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], VouchersController.prototype, "wallet", null);
+__decorate([
+    (0, common_1.Get)('all'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'All member vouchers (active, redeemed, expired)' }),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], VouchersController.prototype, "all", null);
 __decorate([
     (0, common_1.Post)('redeem'),
     (0, swagger_1.ApiBearerAuth)(),

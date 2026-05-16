@@ -98,6 +98,7 @@ model Member {
   passwordHash   String
   name           String
   phone          String?
+  avatarUrl      String?
   birthday       DateTime?
   loyaltyStage   LoyaltyStage @default(REGISTERED)
   isGoldMember   Boolean      @default(false)

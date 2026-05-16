@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: savasaachi-postgres
+    restart: unless-stopped
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: savasaachi
+      POSTGRES_PASSWORD: savasaachi
+      POSTGRES_DB: growth_engine
+    volumes:
+      - savasaachi_pg_data:/data
+
+volumes:
+  savasaachi_pg_data:

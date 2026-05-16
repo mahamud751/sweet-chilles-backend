@@ -11,6 +11,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
+const promises_1 = require("fs/promises");
+const path_1 = require("path");
 const auth_util_1 = require("../../common/auth.util");
 const loyalty_service_1 = require("../loyalty/loyalty.service");
 const prisma_service_1 = require("../../prisma/prisma.service");
@@ -131,6 +133,7 @@ let AuthService = class AuthService {
             name: member.name,
             email: member.email,
             phone: member.phone,
+            avatarUrl: member.avatarUrl,
             birthday: member.birthday,
             loyalty: this.loyalty.memberSummary(member),
             restaurant: {
@@ -142,6 +145,65 @@ let AuthService = class AuthService {
             activeVouchers: member.vouchers,
             notifications: member.notifications,
         };
+    }
+    async updateMemberProfile(memberId, data) {
+        const member = await this.prisma.member.findUniqueOrThrow({
+            where: { id: memberId },
+        });
+        if (data.email && data.email.toLowerCase() !== member.email) {
+            const taken = await this.prisma.member.findUnique({
+                where: {
+                    restaurantId_email: {
+                        restaurantId: member.restaurantId,
+                        email: data.email.toLowerCase(),
+                    },
+                },
+            });
+            if (taken)
+                throw new common_1.ConflictException('Email already in use');
+        }
+        await this.prisma.member.update({
+            where: { id: memberId },
+            data: {
+                name: data.name?.trim() || undefined,
+                email: data.email?.toLowerCase(),
+                phone: data.phone === '' ? null : data.phone,
+                birthday: data.birthday === undefined
+                    ? undefined
+                    : data.birthday === ''
+                        ? null
+                        : new Date(data.birthday),
+            },
+        });
+        return this.memberProfile(memberId);
+    }
+    async changeMemberPassword(memberId, currentPassword, newPassword) {
+        const member = await this.prisma.member.findUniqueOrThrow({
+            where: { id: memberId },
+        });
+        const ok = await (0, auth_util_1.comparePassword)(currentPassword, member.passwordHash);
+        if (!ok)
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        await this.prisma.member.update({
+            where: { id: memberId },
+            data: { passwordHash: await (0, auth_util_1.hashPassword)(newPassword) },
+        });
+        return { success: true };
+    }
+    async updateMemberAvatar(memberId, filename) {
+        const member = await this.prisma.member.findUniqueOrThrow({
+            where: { id: memberId },
+        });
+        const avatarUrl = `/uploads/avatars/${filename}`;
+        if (member.avatarUrl?.startsWith('/uploads/')) {
+            const oldPath = (0, path_1.join)(process.cwd(), member.avatarUrl.replace(/^\//, ''));
+            await (0, promises_1.unlink)(oldPath).catch(() => undefined);
+        }
+        await this.prisma.member.update({
+            where: { id: memberId },
+            data: { avatarUrl },
+        });
+        return this.memberProfile(memberId);
     }
 };
 exports.AuthService = AuthService;

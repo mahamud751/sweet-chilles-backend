@@ -22,6 +22,20 @@ export declare class VouchersController {
         memberId: string;
         visitId: string | null;
     }[]>;
+    all(authHeader?: string): Promise<{
+        type: import(".prisma/client").$Enums.VoucherType;
+        percentOff: number;
+        id: string;
+        createdAt: Date;
+        qrToken: string;
+        status: import(".prisma/client").$Enums.VoucherStatus;
+        validFrom: Date;
+        validUntil: Date;
+        redeemedAt: Date | null;
+        restaurantId: string;
+        memberId: string;
+        visitId: string | null;
+    }[]>;
     redeem(authHeader: string | undefined, body: RedeemDto): Promise<({
         vouchers: {
             type: import(".prisma/client").$Enums.VoucherType;
@@ -47,6 +61,7 @@ export declare class VouchersController {
         email: string;
         passwordHash: string;
         phone: string | null;
+        avatarUrl: string | null;
         birthday: Date | null;
         loyaltyStage: import(".prisma/client").$Enums.LoyaltyStage;
         isGoldMember: boolean;

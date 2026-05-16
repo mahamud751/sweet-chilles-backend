@@ -42,6 +42,7 @@ export declare class LoyaltyService {
         email: string;
         passwordHash: string;
         phone: string | null;
+        avatarUrl: string | null;
         birthday: Date | null;
         loyaltyStage: import(".prisma/client").$Enums.LoyaltyStage;
         isGoldMember: boolean;

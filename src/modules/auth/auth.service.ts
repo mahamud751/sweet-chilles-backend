@@ -3,6 +3,8 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
 import { UserRole } from '@prisma/client';
 import { comparePassword, hashPassword, signToken } from '../../common/auth.util';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -147,6 +149,7 @@ export class AuthService {
       name: member.name,
       email: member.email,
       phone: member.phone,
+      avatarUrl: member.avatarUrl,
       birthday: member.birthday,
       loyalty: this.loyalty.memberSummary(member),
       restaurant: {
@@ -158,5 +161,87 @@ export class AuthService {
       activeVouchers: member.vouchers,
       notifications: member.notifications,
     };
+  }
+
+  async updateMemberProfile(
+    memberId: string,
+    data: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      birthday?: string;
+    },
+  ) {
+    const member = await this.prisma.member.findUniqueOrThrow({
+      where: { id: memberId },
+    });
+
+    if (data.email && data.email.toLowerCase() !== member.email) {
+      const taken = await this.prisma.member.findUnique({
+        where: {
+          restaurantId_email: {
+            restaurantId: member.restaurantId,
+            email: data.email.toLowerCase(),
+          },
+        },
+      });
+      if (taken) throw new ConflictException('Email already in use');
+    }
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: {
+        name: data.name?.trim() || undefined,
+        email: data.email?.toLowerCase(),
+        phone: data.phone === '' ? null : data.phone,
+        birthday:
+          data.birthday === undefined
+            ? undefined
+            : data.birthday === ''
+              ? null
+              : new Date(data.birthday),
+      },
+    });
+
+    return this.memberProfile(memberId);
+  }
+
+  async changeMemberPassword(
+    memberId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const member = await this.prisma.member.findUniqueOrThrow({
+      where: { id: memberId },
+    });
+    const ok = await comparePassword(currentPassword, member.passwordHash);
+    if (!ok) throw new UnauthorizedException('Current password is incorrect');
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: { passwordHash: await hashPassword(newPassword) },
+    });
+
+    return { success: true };
+  }
+
+  async updateMemberAvatar(memberId: string, filename: string) {
+    const member = await this.prisma.member.findUniqueOrThrow({
+      where: { id: memberId },
+    });
+
+    const avatarUrl = `/uploads/avatars/${filename}`;
+
+    if (member.avatarUrl?.startsWith('/uploads/')) {
+      const oldPath = join(process.cwd(), member.avatarUrl.replace(/^\//, ''));
+      await unlink(oldPath).catch(() => undefined);
+    }
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: { avatarUrl },
+    });
+
+    return this.memberProfile(memberId);
   }
 }
