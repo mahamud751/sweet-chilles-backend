@@ -48,7 +48,7 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 4000);
   await app.listen(port);
-  console.log(`Growth Engine App API: http://localhost:${port}`);
+  console.log(`Growth Engine  API: http://localhost:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 
