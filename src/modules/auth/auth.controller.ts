@@ -48,8 +48,16 @@ export class AuthController {
     return this.auth.registerMember(slug, body);
   }
 
+  @Post('restaurants/:slug/login')
+  @ApiOperation({
+    summary: 'Unified login (member, staff, owner, or platform admin)',
+  })
+  unifiedLogin(@Param('slug') slug: string, @Body() body: MemberLoginDto) {
+    return this.auth.loginUnified(slug, body.email, body.password);
+  }
+
   @Post('restaurants/:slug/members/login')
-  @ApiOperation({ summary: 'Member login' })
+  @ApiOperation({ summary: 'Member login (legacy)' })
   login(@Param('slug') slug: string, @Body() body: MemberLoginDto) {
     return this.auth.loginMember(slug, body.email, body.password);
   }

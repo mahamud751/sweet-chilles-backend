@@ -83,6 +83,62 @@ export class AuthService {
     return { token, member: await this.memberProfile(member.id) };
   }
 
+  /**
+   * One login for members, restaurant staff/owners, and platform admins.
+   * Same credentials form; account type is detected from the database.
+   */
+  async loginUnified(restaurantSlug: string, email: string, password: string) {
+    const restaurant = await this.restaurants.findBySlug(restaurantSlug);
+    if (!restaurant) throw new UnauthorizedException('Invalid credentials');
+
+    const normalizedEmail = email.toLowerCase();
+
+    const member = await this.prisma.member.findUnique({
+      where: {
+        restaurantId_email: {
+          restaurantId: restaurant.id,
+          email: normalizedEmail,
+        },
+      },
+    });
+    if (member) {
+      const ok = await comparePassword(password, member.passwordHash);
+      if (!ok) throw new UnauthorizedException('Invalid credentials');
+      const token = signToken({
+        sub: member.id,
+        role: 'MEMBER',
+        restaurantId: restaurant.id,
+        type: 'member',
+      });
+      return {
+        accountType: 'member' as const,
+        token,
+        member: await this.memberProfile(member.id),
+      };
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (user) {
+      const ok = await comparePassword(password, user.passwordHash);
+      if (!ok) throw new UnauthorizedException('Invalid credentials');
+      const token = signToken({
+        sub: user.id,
+        role: user.role,
+        restaurantId: user.restaurantId ?? undefined,
+        type: 'staff',
+      });
+      return {
+        accountType: 'staff' as const,
+        token,
+        staff: await this.staffProfile(user.id),
+      };
+    }
+
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
   async loginMember(restaurantSlug: string, email: string, password: string) {
     const restaurant = await this.restaurants.findBySlug(restaurantSlug);
     if (!restaurant) throw new UnauthorizedException('Invalid credentials');
